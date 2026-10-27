@@ -3,11 +3,9 @@
 import { useSyncExternalStore } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// localStorage = turant hydrated cache + offline fallback.
-// Supabase = cloud source of truth (agar .env.local me keys hon aur table bana ho).
+// Sara data dynamic — Supabase cloud hi source of truth hai.
+// Koi localStorage cache, koi demo seed nahi: app cloud se hi khulta hai.
 
-const KEY = "abuhammas-agent-employees";
-const SEED_KEY = "abuhammas-seeded";
 const TABLE = "employees";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -17,46 +15,26 @@ const supabase =
   SUPABASE_URL && SUPABASE_KEY ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 let snapshot = [];
-let hydrated = false;
 const listeners = new Set();
 
-// Cloud par abhi kaun kaun se ids hain — delete dobara galat na ho iske liye
+// Cloud par abhi kaun kaun se ids hain — delete precise rehne ke liye
 let cloudKnown = false;
 let cloudIds = new Set();
 let pushing = false;
-let cloudSeeded = false; // purge hone se pehle local data ek dafa hi upload ho
-
-function demoData() {
-  const day = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  return [
-    { id: "d1", name: "Mohammed Rizwan Khan", phone: "+966 50 123 4567", iqamaNumber: "2458910234", kafeelName: "Sheikh Abdullah Al-Otaibi", kafeelPhone: "+966 55 987 6543", crNumber: "1010482910", companyName: "Al-Etaq Construction Est.", expiryDate: day(15) },
-    { id: "d2", name: "Tariq Mehmood", phone: "+966 54 888 2311", iqamaNumber: "2398104821", kafeelName: "Tariq Abdulaziz Al-Mansoor", kafeelPhone: "+966 50 444 1122", crNumber: "1010482910", companyName: "Al-Etaq Construction Est.", expiryDate: day(42) },
-    { id: "d3", name: "Ahmed Hassan Al-Sayed", phone: "+966 53 777 9900", iqamaNumber: "2510293847", kafeelName: "Fahad Mohammed Al-Ghamdi", kafeelPhone: "+966 51 222 3344", crNumber: "2050119283", companyName: "Red Sea Trading Co.", expiryDate: day(120) },
-    { id: "d4", name: "Bilal Hussain Malik", phone: "+966 56 112 3344", iqamaNumber: "2301928475", kafeelName: "Sheikh Abdullah Al-Otaibi", kafeelPhone: "+966 55 987 6543", crNumber: "1010482910", companyName: "Al-Etaq Construction Est.", expiryDate: day(-5) },
-    { id: "d5", name: "Usman Ali", phone: "+966 59 333 4455", iqamaNumber: "2499102938", kafeelName: "Sultan Khalid Al-Zahrani", kafeelPhone: "+966 58 777 6655", crNumber: "4030291823", companyName: "Zahrani Logistics Solutions", expiryDate: day(55) },
-    { id: "d6", name: "Kamran Akmal", phone: "+966 57 444 8899", iqamaNumber: "2501928374", kafeelName: "Sultan Khalid Al-Zahrani", kafeelPhone: "+966 58 777 6655", crNumber: "4030291823", companyName: "Zahrani Logistics Solutions", expiryDate: day(180) },
-  ];
-}
-
-function read() {
-  try {
-    snapshot = JSON.parse(localStorage.getItem(KEY) || "[]");
-    if (!Array.isArray(snapshot)) snapshot = [];
-    // first run: pre-load the reference's sample records so colors are visible
-    if (snapshot.length === 0 && !localStorage.getItem(SEED_KEY)) {
-      snapshot = demoData();
-      localStorage.setItem(KEY, JSON.stringify(snapshot));
-      localStorage.setItem(SEED_KEY, "1");
-    }
-  } catch {
-    snapshot = [];
-  }
-  hydrated = true;
-  return snapshot;
-}
 
 function emit() {
   for (const cb of listeners) cb();
+}
+
+// Purana local data clean — ab kisi ke localStorage me purane records na hon
+function cleanupOldLocalData() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem("abuhammas-agent-employees");
+    localStorage.removeItem("abuhammas-seeded");
+  } catch {
+    // storage blocked? koi masla nahi, cloud se hi chalega
+  }
 }
 
 // ---- cloud sync ----
@@ -68,7 +46,7 @@ function warnOnce(error) {
     if (!warnedMissingTable) {
       warnedMissingTable = true;
       console.warn(
-        `[Supabase] Table "${TABLE}" not found — run supabase-schema.sql in Supabase SQL Editor. Using localStorage for now.`
+        `[Supabase] Table "${TABLE}" not found — run supabase-schema.sql in Supabase SQL Editor.`
       );
     }
     return;
@@ -126,10 +104,9 @@ function fromRow(r) {
   };
 }
 
-// Cloud se fetch — dynamic updates ka core (pagination nahi, chhoti table)
+// Cloud se fetch — sara data yahin se aata hai
 async function fetchFromCloud({ quiet } = {}) {
   if (!supabase || typeof window === "undefined" || pushing) return;
-  if (!hydrated) read();
   try {
     const { data, error } = await supabase.from(TABLE).select("*");
     if (error) {
@@ -137,40 +114,24 @@ async function fetchFromCloud({ quiet } = {}) {
       return;
     }
     const rows = (data || []).map(fromRow);
-    const localEmpty = snapshot.length === 0;
     cloudKnown = true;
     cloudIds = new Set(rows.map((r) => r.id));
-    // sirf tab replace karo jab mehfooz id list alag ho (warna pointless re-render)
-    const currentIds = snapshot.map((e) => e.id).sort().join(",");
-    const cloudJoined = rows.map((e) => e.id).sort().join(",");
-    if (rows.length > 0 && (currentIds !== cloudJoined || changedContent(snapshot, rows))) {
+    // sirf tab re-render jab data me sach me change ho (empty cloud bhi apply
+    // hota hai — ab cloud authoritative hai, local data ka koi role nahi)
+    const sig = (list) => list.map((e) => e.id + "|" + JSON.stringify(e)).sort().join("~");
+    if (sig(snapshot) !== sig(rows)) {
       snapshot = rows;
-      localStorage.setItem(KEY, JSON.stringify(rows));
       emit();
-    }
-    // Migration: cloud khali ho magar is device ka local data mojood ho —
-    // ek dafa poori list cloud me upload karo, taake phone/laptop sab devices
-    // par wahi ek data dikhe (pehle pushes table na hone ki wajah se fail
-    // ho chuke the, is liye data sirf localStorage me ghira tha).
-    if (rows.length === 0 && !localEmpty && !cloudSeeded) {
-      cloudSeeded = true;
-      doPush(snapshot);
     }
   } catch (err) {
     if (!quiet) console.warn("[Supabase] sync failed:", err?.message || err);
   }
 }
 
-// poray document ka content compare — koi record edit hua ho to UI update ho
-function changedContent(local, cloud) {
-  if (local.length !== cloud.length) return true;
-  const map = new Map(local.map((e) => [e.id, JSON.stringify(e)]));
-  return cloud.some((e) => map.get(e.id) !== JSON.stringify(e));
-}
-
 async function syncFromCloud() {
   if (!supabase || cloudFetchingStarted) return;
   cloudFetchingStarted = true;
+  cleanupOldLocalData();
   setUi({ syncing: true });
   await fetchFromCloud();
   setUi({ syncing: false });
@@ -180,10 +141,7 @@ let cloudFetchingStarted = false;
 
 function subscribe(callback) {
   listeners.add(callback);
-  const onStorage = () => {
-    read();
-    callback();
-  };
+  const onStorage = () => callback();
   window.addEventListener("storage", onStorage);
   // mount hone par cloud se data fetch hota hai
   syncFromCloud();
@@ -207,7 +165,6 @@ function subscribe(callback) {
 let pollingStarted = false;
 
 function getSnapshot() {
-  if (!hydrated) read();
   return snapshot;
 }
 
@@ -228,8 +185,7 @@ async function doPush(next) {
   pushing = true;
   try {
     const currentIds = new Set(next.map((e) => e.id));
-    // Explicit delete: jo cloud me hain magar ab local me nahi — precise ids
-    // (pehle wala not-in approach kabhi fail hoke purana record wapas la sakta tha)
+    // Explicit delete: jo cloud me hain magar ab list me nahi — precise ids
     const toDelete = cloudKnown
       ? [...cloudIds].filter((id) => !currentIds.has(id))
       : [];
@@ -252,12 +208,14 @@ async function doPush(next) {
         return;
       }
     }
-    // dobara confirm karo — server ka actual final id set cloudIds ban jaye
+    // Server ka final id set cloudIds ban jaye — delete phir kabhi miss na ho
     const { data, error: selErr } = await supabase.from(TABLE).select("id");
     if (!selErr && Array.isArray(data)) {
       cloudIds = new Set(data.map((r) => r.id));
       cloudKnown = true;
     }
+    snapshot = next;
+    emit();
   } catch (err) {
     console.warn("[Supabase] push failed:", err?.message || err);
   } finally {
@@ -278,9 +236,9 @@ function pushToCloud(next) {
 }
 
 export function saveEmployees(next) {
+  // Pehle memory me turant update (UI instant), phir cloud push — data sirf
+  // cloud ke sath sync, local storage ka koi role nahi
   snapshot = typeof next === "function" ? next(snapshot) : next;
-  localStorage.setItem(KEY, JSON.stringify(snapshot));
-  // notify same-tab listeners (cross-tab sync fires via the real storage event)
   window.dispatchEvent(new Event("storage"));
   return pushToCloud(snapshot); // promise — await kar ke UI spinner dikha sakte hain
 }
