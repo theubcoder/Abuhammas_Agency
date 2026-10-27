@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSessionToken, COOKIE_NAME } from "@/lib/auth";
+import { syncEnvFromLocal } from "@/lib/envSync";
 
 // In-memory rate limiting map (IP -> { count, lockedUntil })
 const loginAttempts = new Map();
@@ -61,9 +62,8 @@ export async function POST(request) {
       return NextResponse.json({ error: "Validation failed", errors }, { status: 422 });
     }
 
-    // Target credentials from environment variables
-    const expectedUsername = (process.env.ADMIN_USERNAME || "admin").trim();
-    const expectedPassword = (process.env.ADMIN_PASSWORD || "admin123").trim();
+    // Target credentials dynamically retrieved and synced from .env.local
+    const { username: expectedUsername, password: expectedPassword } = syncEnvFromLocal();
 
     // Verify credentials
     const isUserMatch =

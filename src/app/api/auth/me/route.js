@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { verifySessionToken, COOKIE_NAME } from "@/lib/auth";
+import { syncEnvFromLocal } from "@/lib/envSync";
 
 export async function GET(request) {
+  // Always sync latest credentials from .env.local
+  syncEnvFromLocal();
+
   const sessionCookie = request.cookies.get(COOKIE_NAME)?.value;
   if (!sessionCookie) {
     return NextResponse.json({ authenticated: false }, { status: 200 });

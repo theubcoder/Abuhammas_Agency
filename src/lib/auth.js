@@ -3,8 +3,14 @@
 const COOKIE_NAME = "ah_session";
 const DEFAULT_SECRET = "raza_agency_abuhammas_secure_secret_key_2026";
 
-function getSecret() {
-  return process.env.SESSION_SECRET || process.env.ADMIN_PASSWORD || DEFAULT_SECRET;
+export function getSecret() {
+  const username = (process.env.ADMIN_USERNAME || "admin").trim();
+  const password = (process.env.ADMIN_PASSWORD || "admin123").trim();
+  const baseSecret = (process.env.SESSION_SECRET || DEFAULT_SECRET).trim();
+  // Secret is cryptographically bound to the current ADMIN_PASSWORD and ADMIN_USERNAME.
+  // The moment username or password changes in .env.local, any token generated with the old
+  // password/username immediately fails HMAC verification, thereby LOGGING OUT ALL DEVICES!
+  return `${baseSecret}:::${username}:::${password}`;
 }
 
 // Helper: base64url encoding/decoding

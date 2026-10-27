@@ -35,6 +35,16 @@ export default function LoginPage() {
   // Rate limiting / lockout countdown
   const [lockoutSeconds, setLockoutSeconds] = useState(0);
 
+  // Clear all states and fields whenever login page mounts or is navigated to
+  useEffect(() => {
+    setUsername("");
+    setPassword("");
+    setLoading(false);
+    setIsSuccess(false);
+    setErrors({});
+    setServerError("");
+  }, []);
+
   // Lockout countdown timer
   useEffect(() => {
     if (lockoutSeconds <= 0) return;
@@ -117,11 +127,10 @@ export default function LoginPage() {
       setIsSuccess(true);
       setLoading(false);
 
-      // Smooth redirect
+      // Clean redirect to dashboard
       setTimeout(() => {
-        router.push("/");
-        router.refresh();
-      }, 700);
+        window.location.href = "/";
+      }, 500);
     } catch (err) {
       setLoading(false);
       triggerShake();

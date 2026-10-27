@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -49,13 +49,31 @@ export default function Dashboard() {
   const router = useRouter();
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
+  // Auto-logout from all devices if credentials change in .env.local
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch("/api/auth/me");
+        const data = await res.json();
+        if (!data.authenticated) {
+          window.location.href = "/login";
+        }
+      } catch (e) {
+        // network glitch
+      }
+    }
+    checkAuth();
+    window.addEventListener("focus", checkAuth);
+    return () => window.removeEventListener("focus", checkAuth);
+  }, []);
+
   async function handleConfirmLogout() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-      router.refresh();
+      window.location.href = "/login";
     } catch (err) {
       console.error("Logout failed:", err);
+      window.location.href = "/login";
     }
   }
 
