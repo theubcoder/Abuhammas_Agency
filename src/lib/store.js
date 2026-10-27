@@ -18,8 +18,13 @@ const supabase =
 
 let snapshot = [];
 let hydrated = false;
-let cloudFetched = false;
 const listeners = new Set();
+
+// Cloud par abhi kaun kaun se ids hain — delete dobara galat na ho iske liye
+let cloudKnown = false;
+let cloudIds = new Set();
+let pushing = false;
+let cloudSeeded = false; // purge hone se pehle local data ek dafa hi upload ho
 
 function demoData() {
   const day = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -54,39 +59,8 @@ function emit() {
   for (const cb of listeners) cb();
 }
 
-function subscribe(callback) {
-  listeners.add(callback);
-  const onStorage = () => {
-    read();
-    callback();
-  };
-  window.addEventListener("storage", onStorage);
-  // mount hone par cloud se ek dafa data fetch hota hai
-  syncFromCloud();
-  return () => {
-    listeners.delete(callback);
-    window.removeEventListener("storage", onStorage);
-  };
-}
-
-function getSnapshot() {
-  if (!hydrated) read();
-  return snapshot;
-}
-
-export function useEmployees() {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
-
-// Cached empty array — useSyncExternalStore requires getServerSnapshot to
-// return a stable value, otherwise React re-renders in an infinite loop.
-const EMPTY = [];
-
-function getServerSnapshot() {
-  return EMPTY;
-}
-
-// ---- cloud sync ----let warnedMissingTable = false;
+// ---- cloud sync ----
+let warnedMissingTable = false;
 
 function warnOnce(error) {
   const code = error?.code || "";
@@ -152,51 +126,142 @@ function fromRow(r) {
   };
 }
 
-// ---- cloud sync ----
-async function syncFromCloud() {
-  if (!supabase || cloudFetched || typeof window === "undefined") return;
-  cloudFetched = true;
+// Cloud se fetch — dynamic updates ka core (pagination nahi, chhoti table)
+async function fetchFromCloud({ quiet } = {}) {
+  if (!supabase || typeof window === "undefined" || pushing) return;
   if (!hydrated) read();
-  setUi({ syncing: true });
   try {
     const { data, error } = await supabase.from(TABLE).select("*");
     if (error) {
-      warnOnce(error);
+      if (!quiet) warnOnce(error);
       return;
     }
     const rows = (data || []).map(fromRow);
-    // Cloud is source of truth: agar usme data hai to local replace karo
-    if (rows.length > 0) {
+    const localEmpty = snapshot.length === 0;
+    cloudKnown = true;
+    cloudIds = new Set(rows.map((r) => r.id));
+    // sirf tab replace karo jab mehfooz id list alag ho (warna pointless re-render)
+    const currentIds = snapshot.map((e) => e.id).sort().join(",");
+    const cloudJoined = rows.map((e) => e.id).sort().join(",");
+    if (rows.length > 0 && (currentIds !== cloudJoined || changedContent(snapshot, rows))) {
       snapshot = rows;
       localStorage.setItem(KEY, JSON.stringify(rows));
       emit();
     }
+    // Migration: cloud khali ho magar is device ka local data mojood ho —
+    // ek dafa poori list cloud me upload karo, taake phone/laptop sab devices
+    // par wahi ek data dikhe (pehle pushes table na hone ki wajah se fail
+    // ho chuke the, is liye data sirf localStorage me ghira tha).
+    if (rows.length === 0 && !localEmpty && !cloudSeeded) {
+      cloudSeeded = true;
+      doPush(snapshot);
+    }
   } catch (err) {
-    console.warn("[Supabase] sync failed:", err?.message || err);
-  } finally {
-    setUi({ syncing: false });
+    if (!quiet) console.warn("[Supabase] sync failed:", err?.message || err);
   }
+}
+
+// poray document ka content compare — koi record edit hua ho to UI update ho
+function changedContent(local, cloud) {
+  if (local.length !== cloud.length) return true;
+  const map = new Map(local.map((e) => [e.id, JSON.stringify(e)]));
+  return cloud.some((e) => map.get(e.id) !== JSON.stringify(e));
+}
+
+async function syncFromCloud() {
+  if (!supabase || cloudFetchingStarted) return;
+  cloudFetchingStarted = true;
+  setUi({ syncing: true });
+  await fetchFromCloud();
+  setUi({ syncing: false });
+}
+
+let cloudFetchingStarted = false;
+
+function subscribe(callback) {
+  listeners.add(callback);
+  const onStorage = () => {
+    read();
+    callback();
+  };
+  window.addEventListener("storage", onStorage);
+  // mount hone par cloud se data fetch hota hai
+  syncFromCloud();
+  // Dynamic sync: har 10 sec me cloud check (sirf tab open/visible ho to)
+  if (!pollingStarted && supabase) {
+    pollingStarted = true;
+    setInterval(() => {
+      if (!document.hidden && !ui.saving) fetchFromCloud({ quiet: true });
+    }, 10000);
+    // tab wapas focus par aaye to turant refresh
+    window.addEventListener("focus", () => {
+      if (!ui.saving) fetchFromCloud({ quiet: true });
+    });
+  }
+  return () => {
+    listeners.delete(callback);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+let pollingStarted = false;
+
+function getSnapshot() {
+  if (!hydrated) read();
+  return snapshot;
+}
+
+// Cached empty array — useSyncExternalStore requires getServerSnapshot to
+// return a stable value, otherwise React re-renders in an infinite loop.
+const EMPTY = [];
+
+function getServerSnapshot() {
+  return EMPTY;
+}
+
+export function useEmployees() {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 async function doPush(next) {
   setUi({ saving: true });
+  pushing = true;
   try {
-    const rows = next.map(toRow);
-    const ids = next.map((e) => e.id);
-    // Jo records cloud me magar local state me nahi hain unhe delete karo
-    const deleteQuery = supabase.from(TABLE).delete();
-    if (ids.length > 0) {
-      await deleteQuery.not("id", "in", `(${ids.join(",")})`);
-    } else {
-      await deleteQuery.neq("id", "__none__"); // empty state: sab delete
+    const currentIds = new Set(next.map((e) => e.id));
+    // Explicit delete: jo cloud me hain magar ab local me nahi — precise ids
+    // (pehle wala not-in approach kabhi fail hoke purana record wapas la sakta tha)
+    const toDelete = cloudKnown
+      ? [...cloudIds].filter((id) => !currentIds.has(id))
+      : [];
+    if (toDelete.length > 0) {
+      const { error } = await supabase.from(TABLE).delete().in("id", toDelete);
+      if (error) {
+        warnOnce(error);
+      } else {
+        for (const id of toDelete) cloudIds.delete(id);
+      }
     }
-    if (rows.length > 0) {
-      const { error } = await supabase.from(TABLE).upsert(rows, { onConflict: "id" });
-      if (error) warnOnce(error);
+    // Upsert baqi records
+    const rows = next.map(toRow);
+    for (let i = 0; i < rows.length; i += 100) {
+      const batch = rows.slice(i, i + 100);
+      if (batch.length === 0) continue;
+      const { error } = await supabase.from(TABLE).upsert(batch, { onConflict: "id" });
+      if (error) {
+        warnOnce(error);
+        return;
+      }
+    }
+    // dobara confirm karo — server ka actual final id set cloudIds ban jaye
+    const { data, error: selErr } = await supabase.from(TABLE).select("id");
+    if (!selErr && Array.isArray(data)) {
+      cloudIds = new Set(data.map((r) => r.id));
+      cloudKnown = true;
     }
   } catch (err) {
     console.warn("[Supabase] push failed:", err?.message || err);
   } finally {
+    pushing = false;
     setUi({ saving: false });
   }
 }
@@ -207,7 +272,6 @@ let pushTail = Promise.resolve();
 function pushToCloud(next) {
   if (!supabase || typeof window === "undefined") return Promise.resolve();
   const task = pushTail.then(() => doPush(next));
-  // pushTail kabhi reject nahi hoga chalega (task catch hota hai neeche)
   task.catch((err) => console.warn("[Supabase] push failed:", err?.message || err));
   pushTail = task;
   return pushTail;
