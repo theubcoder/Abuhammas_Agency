@@ -14,7 +14,6 @@ import {
   Loader2,
   Sun,
   Moon,
-  ShieldCheck,
 } from "lucide-react";
 import { getStatus, daysLabel } from "@/lib/iqama";
 import { useEmployees, saveEmployees, useUiState } from "@/lib/store";
@@ -130,8 +129,13 @@ export default function Dashboard() {
       >
         <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="shrink-0 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 p-2 text-white shadow-lg shadow-indigo-500/25 sm:rounded-xl sm:p-2.5">
-              <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+            {/* Custom Logo Image replacement */}
+            <div className="shrink-0 overflow-hidden rounded-xl border border-indigo-500/20 bg-white/10 p-1 shadow-md shadow-indigo-500/10">
+              <img
+                src="/images/Hammas-Logo.png"
+                alt="Hammas Logo"
+                className="h-8 w-8 object-contain sm:h-9 sm:w-9"
+              />
             </div>
             <div className="min-w-0">
               <h1 className="flex items-center gap-1.5 text-sm font-bold tracking-wide text-slate-900 dark:text-slate-100 sm:gap-2 sm:text-lg">
@@ -179,7 +183,7 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        {/* Dashboard KPI Summary Cards — click se filter hota hai */}
+        {/* Dashboard KPI Summary Cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* Total */}
           <div
@@ -356,7 +360,7 @@ export default function Dashboard() {
               <Download className="h-4 w-4" />
             </button>
 
-            {/* Bulk delete — jab selection ho tab dikhta hai */}
+            {/* Bulk delete */}
             {selectedIds.length > 0 && (
               <button
                 onClick={() =>
@@ -374,47 +378,46 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Data Table / mobile cards */}
-      {/* Loading skeleton — page refresh par jab tak cloud se data aa raha ho */}
-      {ui.syncing ? (
-        <div
-          className={`rounded-2xl border p-4 sm:p-6 ${
-            dark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white shadow-sm"
-          }`}
-        >
-          <div className="flex items-center gap-2 px-1 pb-4 text-xs font-medium text-slate-500">
-            <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-            Syncing records from cloud…
+        {/* Loading skeleton */}
+        {ui.syncing ? (
+          <div
+            className={`rounded-2xl border p-4 sm:p-6 ${
+              dark ? "border-slate-800 bg-slate-900/60" : "border-slate-200 bg-white shadow-sm"
+            }`}
+          >
+            <div className="flex items-center gap-2 px-1 pb-4 text-xs font-medium text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+              Syncing records from cloud…
+            </div>
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  style={{ animationDelay: `${i * 100}ms` }}
+                  className="animate-pulse grid grid-cols-2 gap-3 rounded-xl bg-slate-100 px-4 py-5 dark:bg-slate-800/70 sm:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
+                >
+                  <div className="h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-700" />
+                  <div className="h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700" />
+                  <div className="hidden h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700 sm:block" />
+                  <div className="hidden h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700 sm:block" />
+                  <div className="hidden h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700 sm:block" />
+                  <div className="h-4 w-8 rounded bg-slate-200 dark:bg-slate-700" />
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                style={{ animationDelay: `${i * 100}ms` }}
-                className="animate-pulse grid grid-cols-2 gap-3 rounded-xl bg-slate-100 px-4 py-5 dark:bg-slate-800/70 sm:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]"
-              >
-                <div className="h-4 w-2/3 rounded bg-slate-200 dark:bg-slate-700" />
-                <div className="h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700" />
-                <div className="hidden h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700 sm:block" />
-                <div className="hidden h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700 sm:block" />
-                <div className="hidden h-4 w-1/2 rounded bg-slate-200 dark:bg-slate-700 sm:block" />
-                <div className="h-4 w-8 rounded bg-slate-200 dark:bg-slate-700" />
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <EmployeeTable
-          employees={filtered}
-          total={employees.length}
-          onView={setSelectedPerson}
-          onEdit={openEdit}
-          onDelete={(p) => setPendingDeleteList([p])}
-          selectedIds={selectedIds}
-          onSelect={toggleSelect}
-          onSelectAll={toggleSelectAll}
-        />
-      )}
+        ) : (
+          <EmployeeTable
+            employees={filtered}
+            total={employees.length}
+            onView={setSelectedPerson}
+            onEdit={openEdit}
+            onDelete={(p) => setPendingDeleteList([p])}
+            selectedIds={selectedIds}
+            onSelect={toggleSelect}
+            onSelectAll={toggleSelectAll}
+          />
+        )}
       </main>
 
       {/* Footer */}
@@ -426,7 +429,7 @@ export default function Dashboard() {
         </p>
       </footer>
 
-      {/* Global saving indicator — cloud push ke dauran */}
+      {/* Global saving indicator */}
       {ui.saving && (
         <div
           style={{ animationDelay: "0ms" }}
@@ -459,7 +462,7 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Delete confirmation (single ya multiple) */}
+      {/* Delete confirmation */}
       {pendingDeleteList && (
         <DeleteModal
           employees={pendingDeleteList}
@@ -471,7 +474,6 @@ export default function Dashboard() {
   );
 }
 
-// separate component: theme hook sirf client mein use hota hai
 function ThemeToggleButton() {
   const [dark, toggle] = useTheme();
   return (
