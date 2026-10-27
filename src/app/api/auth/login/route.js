@@ -4,8 +4,20 @@ import { syncEnvFromLocal } from "@/lib/envSync";
 
 // In-memory rate limiting map (IP -> { count, lockedUntil })
 const loginAttempts = new Map();
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS = 60 * 1000; // 1 minute lockout after 5 failed attempts
+const MAX_ATTEMPTS = 10;
+const LOCKOUT_MS = 60 * 1000; // 1 minute lockout after 10 failed attempts
+
+// Normalize mobile virtual keyboard quirks (Arabic/Urdu digits, NBSP, zero-width chars, spaces)
+function normalizeMobileInput(str) {
+  if (typeof str !== "string") return "";
+  return str
+    // Normalize Arabic-Indic digits (٠-٩) and Eastern Arabic-Indic digits (۰-۹) to standard (0-9)
+    .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (c) => String(c.charCodeAt(0) - 0x06F0))
+    // Replace all kinds of Unicode whitespace / NBSP with standard space
+    .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, " ")
+    .trim();
+}
 
 function getClientIp(request) {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -45,10 +57,10 @@ export async function POST(request) {
 
     const { username, password, rememberMe } = body || {};
 
-    // Input Validations
+    // Input Validations with mobile normalization
     const errors = {};
-    const cleanUsername = typeof username === "string" ? username.trim() : "";
-    const cleanPassword = typeof password === "string" ? password.trim() : "";
+    const cleanUsername = normalizeMobileInput(username);
+    const cleanPassword = normalizeMobileInput(password);
 
     if (!cleanUsername) {
       errors.username = "Username is required.";

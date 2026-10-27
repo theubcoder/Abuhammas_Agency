@@ -17,6 +17,15 @@ import {
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 
+function cleanMobileStr(str) {
+  if (!str) return "";
+  return str
+    .replace(/[\u0660-\u0669]/g, (c) => String(c.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (c) => String(c.charCodeAt(0) - 0x06F0))
+    .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]/g, " ")
+    .trim();
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
@@ -64,12 +73,14 @@ export default function LoginPage() {
   // Client-side validation function
   const validate = () => {
     const errs = {};
-    if (!username.trim()) {
+    const u = cleanMobileStr(username);
+    const p = cleanMobileStr(password);
+    if (!u) {
       errs.username = "Username is required.";
     }
-    if (!password) {
+    if (!p) {
       errs.password = "Password is required.";
-    } else if (password.length < 3) {
+    } else if (p.length < 3) {
       errs.password = "Password must be at least 3 characters.";
     }
     setErrors(errs);
@@ -99,8 +110,8 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: username.trim(),
-          password: password.trim(),
+          username: cleanMobileStr(username),
+          password: cleanMobileStr(password),
           rememberMe,
         }),
       });
