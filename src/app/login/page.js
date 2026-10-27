@@ -100,7 +100,7 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: username.trim(),
-          password,
+          password: password.trim(),
           rememberMe,
         }),
       });
@@ -229,6 +229,9 @@ export default function LoginPage() {
                   name="username"
                   type="text"
                   autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   autoFocus
                   disabled={loading || isSuccess || lockoutSeconds > 0}
                   value={username}
@@ -236,7 +239,7 @@ export default function LoginPage() {
                     setUsername(e.target.value);
                     if (errors.username) setErrors({ ...errors, username: null });
                   }}
-                  placeholder="admin"
+                  placeholder="Username"
                   className={`w-full rounded-xl border bg-slate-50/50 py-2.5 pl-10 pr-3 text-sm text-slate-900 transition placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 dark:bg-slate-950/60 dark:text-slate-100 dark:focus:bg-slate-950 ${
                     errors.username
                       ? "border-rose-400 focus:border-rose-500 focus:ring-rose-500/20 dark:border-rose-500"
@@ -270,6 +273,9 @@ export default function LoginPage() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   disabled={loading || isSuccess || lockoutSeconds > 0}
                   value={password}
                   onChange={(e) => {

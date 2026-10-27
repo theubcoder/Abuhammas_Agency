@@ -48,7 +48,7 @@ export async function POST(request) {
     // Input Validations
     const errors = {};
     const cleanUsername = typeof username === "string" ? username.trim() : "";
-    const cleanPassword = typeof password === "string" ? password : "";
+    const cleanPassword = typeof password === "string" ? password.trim() : "";
 
     if (!cleanUsername) {
       errors.username = "Username is required.";
@@ -65,10 +65,12 @@ export async function POST(request) {
     // Target credentials dynamically retrieved and synced from .env.local
     const { username: expectedUsername, password: expectedPassword } = syncEnvFromLocal();
 
-    // Verify credentials
+    // Verify credentials (case-insensitive for username, whitespace/mobile-resilient for password)
     const isUserMatch =
       cleanUsername.toLowerCase() === expectedUsername.toLowerCase();
-    const isPassMatch = cleanPassword === expectedPassword;
+    const isPassMatch =
+      cleanPassword === expectedPassword ||
+      cleanPassword.replace(/\s+/g, "") === expectedPassword.replace(/\s+/g, "");
 
     if (!isUserMatch || !isPassMatch) {
       // Record failed attempt
@@ -117,12 +119,17 @@ export async function POST(request) {
       },
     });
 
-    // Set HTTP-only secure session cookie
+    // Detect HTTPS (true on production SSL, false on local network / HTTP)
+    const isHttps =
+      request.headers.get("x-forwarded-proto") === "https" ||
+      request.nextUrl.protocol === "https:";
+
+    // Set HTTP-only session cookie (works seamlessly on mobile over HTTP and production HTTPS)
     response.cookies.set({
       name: COOKIE_NAME,
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isHttps,
       sameSite: "lax",
       path: "/",
       maxAge: maxAgeSeconds,
