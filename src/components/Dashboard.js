@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Users,
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   Loader2,
   Sun,
   Moon,
+  LogOut,
 } from "lucide-react";
 import { getStatus, daysLabel } from "@/lib/iqama";
 import { useEmployees, saveEmployees, useUiState } from "@/lib/store";
@@ -43,6 +45,21 @@ export default function Dashboard() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [dark] = useTheme();
   const ui = useUiState(); // syncing (page load) / saving (cloud push)
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    if (!window.confirm("Are you sure you want to log out?")) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/login");
+      router.refresh();
+    } catch (err) {
+      console.error("Logout failed:", err);
+      setLoggingOut(false);
+    }
+  }
 
   const uniqueKafeels = useMemo(
     () => [...new Set(employees.map((e) => e.kafeelName).filter(Boolean))].sort(),
@@ -178,6 +195,20 @@ export default function Dashboard() {
             </button>
 
             <ThemeToggleButton />
+
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              title="Logout from Agency System"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 active:scale-95 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:border-rose-900/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+            >
+              {loggingOut ? (
+                <Loader2 className="h-4 w-4 animate-spin text-rose-500" />
+              ) : (
+                <LogOut className="h-4 w-4 text-slate-400 group-hover:text-rose-500" />
+              )}
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
         </div>
       </header>
