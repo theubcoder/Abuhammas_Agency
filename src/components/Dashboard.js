@@ -25,6 +25,7 @@ import EmployeeTable from "./EmployeeTable";
 import EmployeeModal from "./EmployeeModal";
 import PersonViewModal from "./PersonViewModal";
 import DeleteModal from "./DeleteModal";
+import LogoutModal from "./LogoutModal";
 
 const FILTERS = [
   { id: "all", label: "All Records" },
@@ -46,18 +47,15 @@ export default function Dashboard() {
   const [dark] = useTheme();
   const ui = useUiState(); // syncing (page load) / saving (cloud push)
   const router = useRouter();
-  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
-  async function handleLogout() {
-    if (!window.confirm("Are you sure you want to log out?")) return;
-    setLoggingOut(true);
+  async function handleConfirmLogout() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       router.push("/login");
       router.refresh();
     } catch (err) {
       console.error("Logout failed:", err);
-      setLoggingOut(false);
     }
   }
 
@@ -197,16 +195,11 @@ export default function Dashboard() {
             <ThemeToggleButton />
 
             <button
-              onClick={handleLogout}
-              disabled={loggingOut}
+              onClick={() => setLogoutModalOpen(true)}
               title="Logout from Agency System"
-              className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 active:scale-95 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:border-rose-900/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+              className="flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 active:scale-95 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:border-rose-900/50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
             >
-              {loggingOut ? (
-                <Loader2 className="h-4 w-4 animate-spin text-rose-500" />
-              ) : (
-                <LogOut className="h-4 w-4 text-slate-400 group-hover:text-rose-500" />
-              )}
+              <LogOut className="h-4 w-4 text-slate-400 group-hover:text-rose-500" />
               <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
@@ -501,6 +494,13 @@ export default function Dashboard() {
           onClose={() => setPendingDeleteList(null)}
         />
       )}
+
+      {/* Custom Logout confirmation modal */}
+      <LogoutModal
+        isOpen={logoutModalOpen}
+        onConfirm={handleConfirmLogout}
+        onClose={() => setLogoutModalOpen(false)}
+      />
     </>
   );
 }
