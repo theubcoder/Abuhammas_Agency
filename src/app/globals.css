@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: `.dark` on <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+}
+
+.dark {
+  --background: #020617;
+  --foreground: #f1f5f9;
 }
 
 @theme inline {
@@ -10,17 +18,135 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-urdu: var(--font-nastaliq);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Ambient glow — soft in light, glassy sky glow in dark */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    700px 320px at 12% -10%,
+    rgb(14 165 233 / 0.05),
+    transparent
+  );
+}
+
+html.dark body::before {
+  background:
+    radial-gradient(700px 320px at 12% -10%, rgb(14 165 233 / 0.08), transparent),
+    radial-gradient(700px 320px at 88% -10%, rgb(99 102 241 / 0.07), transparent),
+    radial-gradient(900px 400px at 50% 110%, rgb(16 185 129 / 0.04), transparent);
+}
+
+/* Smooth entrance — fade + rise (stagger delay inline style se set hota hai) */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade 0.25s ease-out both;
+}
+
+/* Motion kam rakhne wale users ke lie disable */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in {
+    animation: none;
+  }
+}
+
+/* pulse-red — critical badge/card animation per spec */
+@keyframes pulse-red {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+.animate-red-pulse {
+  animation: pulse-red 2s ease-in-out infinite;
+}
+
+/* Date input calendar icon — light */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+/* Date input calendar icon — dark (black icon dark theme meinvisible hota hai) */
+html.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.8;
+}
+
+/* Clickable elements — pointer cursor (Tailwind v4 buttons default cursor nahi deta) */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+select:not(:disabled),
+label:has(input[type="checkbox"]),
+label:has(input[type="radio"]),
+input[type="date"]:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Scrollbar — light */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Scrollbar — dark */
+html.dark ::-webkit-scrollbar-track {
+  background: #020617;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
