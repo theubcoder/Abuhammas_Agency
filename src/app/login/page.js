@@ -11,6 +11,7 @@ import {
   Loader2,
   CheckCircle2,
   ShieldAlert,
+  ShieldCheck,
   ArrowRight,
   Info,
 } from "lucide-react";
@@ -133,8 +134,12 @@ export default function LoginPage() {
       {/* Top Bar with Agency Header & Theme Toggle */}
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between pb-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-lg shadow-indigo-500/25">
-            <span className="font-urdu text-xl font-bold">ابو</span>
+          <div className="shrink-0 overflow-hidden rounded-2xl border border-indigo-500/20 bg-white/60 p-1.5 shadow-md shadow-indigo-500/10 backdrop-blur-sm dark:bg-slate-900/60 dark:border-slate-800">
+            <img
+              src="/images/Hammas-Logo.png"
+              alt="Hammas Logo"
+              className="h-10 w-10 object-contain sm:h-11 sm:w-11"
+            />
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -331,15 +336,15 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Config Note / Helper Card */}
+          {/* Security & Assistance Note */}
           <div className="mt-6 rounded-2xl border border-slate-200/60 bg-slate-50/70 p-3 text-xs text-slate-500 dark:border-slate-800/60 dark:bg-slate-950/40 dark:text-slate-400">
-            <div className="flex items-start gap-2">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-500" />
-              <div>
+            <div className="flex items-start gap-2.5">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500 dark:text-emerald-400" />
+              <div className="leading-relaxed">
                 <span className="font-semibold text-slate-700 dark:text-slate-300">
-                  Password Configuration:
+                  Authorized Access Only:
                 </span>{" "}
-                Password is set in <code className="rounded bg-slate-200/60 px-1 py-0.5 font-mono text-[11px] text-slate-800 dark:bg-slate-800 dark:text-slate-200">.env.local</code> via <code className="rounded bg-slate-200/60 px-1 py-0.5 font-mono text-[11px] text-slate-800 dark:bg-slate-800 dark:text-slate-200">ADMIN_PASSWORD</code>. Change it anytime in your file to update access.
+                This portal is reserved for agency administration. For password assistance or credential inquiries, please contact your administrator.
               </div>
             </div>
           </div>
