@@ -15,6 +15,24 @@ const EMPTY = {
   expiryDate: "",
 };
 
+// Saudi phone validation — 05XXXXXXXX, 5XXXXXXXX, +9665XXXXXXXX, 9665XXXXXXXX sab accept (spaces/dashes ignore)
+// Landline (011/012/013... area codes) bhi allowed: 011XXXXXXX
+export function isValidSaudiNumber(raw) {
+  const digits = String(raw).replace(/[^0-9]/g, "");
+  // strip 00 international prefix if present (00966...)
+  const intl = digits.startsWith("00966") ? "966" + digits.slice(5) : digits;
+  if (intl.startsWith("966")) {
+    const rest = intl.slice(3);
+    return /^(5\d{8}|1[1-4]\d{7})$/.test(rest);
+  }
+  // local format: mobile 05XXXXXXXX (10 digits) ya landline 011XXXXXXX (9 digits)
+  if (digits.startsWith("0")) {
+    return /^0(5\d{8}|1[1-4]\d{7})$/.test(digits);
+  }
+  // mobile without leading zero: 5XXXXXXXX
+  return /^5\d{8}$/.test(intl);
+}
+
 // Live validation — form ke current values ke hisaab se pehla error return karta hai
 function validate(form) {
   const name = String(form.name).trim();
@@ -26,12 +44,12 @@ function validate(form) {
     return "Iqama number must be exactly 10 digits.";
   }
   const phone = String(form.phone).trim();
-  if (phone && !/^[0-9+\s-]{7,15}$/.test(phone)) {
-    return "Please enter a valid person phone number.";
+  if (phone && !isValidSaudiNumber(phone)) {
+    return "Please enter a valid Saudi phone number (e.g. 0512345678 or +966512345678).";
   }
   const kafeelPhone = String(form.kafeelPhone).trim();
-  if (kafeelPhone && !/^[0-9+\s-]{7,15}$/.test(kafeelPhone)) {
-    return "Please enter a valid kafeel phone number.";
+  if (kafeelPhone && !isValidSaudiNumber(kafeelPhone)) {
+    return "Please enter a valid Saudi kafeel phone number (e.g. 0512345678 or +966512345678).";
   }
   return "";
 }
@@ -144,7 +162,7 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
             <input
               type="tel"
               dir="ltr"
-              placeholder="+966 5x xxx xxxx"
+              placeholder="05XXXXXXXX / +9665XXXXXXXX"
               value={form.phone ?? ""}
               onChange={(e) => set("phone", e.target.value)}
               className={inputCls}
@@ -217,7 +235,7 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
             <input
               type="tel"
               dir="ltr"
-              placeholder="+966 5x xxx xxxx"
+              placeholder="05XXXXXXXX / +9665XXXXXXXX"
               value={form.kafeelPhone ?? ""}
               onChange={(e) => set("kafeelPhone", e.target.value)}
               className={inputCls}
