@@ -369,14 +369,14 @@ export default function Dashboard() {
           </div>
 
           {/* Kafeel Filter + CSV Export */}
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <Filter
               className={`h-4 w-4 ${dark ? "text-slate-400" : "text-slate-500"}`}
             />
             <select
               value={kafeelFilter}
               onChange={(e) => setKafeelFilter(e.target.value)}
-              className={`rounded-xl border px-3 py-2 text-xs font-medium outline-none transition focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+              className={`max-w-[calc(100%-3rem)] min-w-0 flex-1 rounded-xl border px-3 py-2 text-xs font-medium outline-none transition focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:max-w-none sm:flex-none ${
                 dark
                   ? "border-slate-800 bg-slate-950 text-slate-200"
                   : "border-slate-200 bg-slate-50 text-slate-700"
@@ -411,10 +411,10 @@ export default function Dashboard() {
                   )
                 }
                 title="Delete all selected records"
-                className="flex cursor-pointer items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white shadow-lg shadow-rose-600/30 transition hover:bg-rose-500 active:scale-95"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-xs font-medium text-white shadow-lg shadow-rose-600/30 transition hover:bg-rose-500 active:scale-95 sm:w-auto"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete Selected ({selectedIds.length})
+                <Trash2 className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">Delete Selected ({selectedIds.length})</span>
               </button>
             )}
           </div>
