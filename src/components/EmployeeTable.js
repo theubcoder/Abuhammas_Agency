@@ -75,21 +75,21 @@ export default function EmployeeTable({
                     className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-rose-500"
                   />
                   <div className="min-w-0">
-                  <div className="truncate font-semibold text-slate-900 dark:text-slate-100">
-                    {e.name}
+                    <div className="truncate font-semibold text-slate-900 dark:text-slate-100">
+                      {e.name}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400" dir="ltr">
+                      <Phone className="h-3 w-3 shrink-0 text-indigo-400" />
+                      <span className="truncate">{e.phone}</span>
+                    </div>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400" dir="ltr">
-                    <Phone className="h-3 w-3 text-indigo-400" />
-                    {e.phone}
-                  </div>
-                </div>
                 </div>
                 <span
                   className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${st.bg} ${
                     st.key === "red" ? "animate-red-pulse" : ""
                   }`}
                 >
-                  <StatusIcon className="h-3.5 w-3.5" />
+                  <StatusIcon className="h-3.5 w-3.5 shrink-0" />
                   {daysLabel(st.days)}
                 </span>
               </div>
@@ -109,14 +109,14 @@ export default function EmployeeTable({
                   target="_blank"
                   rel="noreferrer"
                   title="WhatsApp Person"
-                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 transition hover:bg-emerald-500/20"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 transition hover:bg-emerald-500/20"
                 >
                   <MessageSquare className="h-4 w-4" />
                 </a>
                 <button
                   onClick={() => onView(e)}
                   title="View Full Profile"
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg border transition ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition ${
                     "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
@@ -129,14 +129,14 @@ export default function EmployeeTable({
                     "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                   }`}
                 >
-                  <Edit2 className="h-3.5 w-3.5" /> Edit
+                  <Edit2 className="h-3.5 w-3.5 shrink-0" /> Edit
                 </button>
                 <button
                   onClick={() => onDelete(e)}
                   title="Delete Record"
                   className="flex h-9 flex-1 items-center justify-center gap-2 rounded-lg bg-rose-500/10 text-xs font-medium text-rose-500 transition hover:bg-rose-500/20"
                 >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                  <Trash2 className="h-3.5 w-3.5 shrink-0" /> Delete
                 </button>
               </div>
             </div>
@@ -144,33 +144,33 @@ export default function EmployeeTable({
         })}
       </div>
 
-      {/* Tablet & desktop — table (reference layout) */}
+      {/* Tablet & desktop — table */}
       <div
         className={`hidden overflow-hidden rounded-2xl border sm:block ${
           "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/60"
         }`}
       >
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
+          <table className="w-full border-collapse text-left table-fixed">
             <thead>
               <tr
                 className={`border-b text-xs font-semibold uppercase tracking-wider ${
                   "border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-400"
                 }`}
               >
-                <th className="py-4 pl-6 pr-2">
+                <th className="py-4 pl-6 pr-2 w-12">
                   <SelectAllCheckbox
                     checked={isAllSelected}
                     indeterminate={isSomeSelected}
                     onChange={(checked) => onSelectAll(checked)}
                   />
                 </th>
-                <th className="px-6 py-4">Personnel Info</th>
-                <th className="px-6 py-4">Iqama Details</th>
-                <th className="px-6 py-4">Kafeel / Sponsor</th>
-                <th className="px-6 py-4">CR / Muassasa</th>
-                <th className="px-6 py-4">Expiry Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-4 py-4 w-48">Personnel Info</th>
+                <th className="px-4 py-4 w-36">Iqama Details</th>
+                <th className="px-4 py-4 w-48">Kafeel / Sponsor</th>
+                <th className="px-4 py-4 w-44">CR / Muassasa</th>
+                <th className="px-4 py-4 w-40">Expiry Status</th>
+                <th className="px-6 py-4 text-right w-36">Actions</th>
               </tr>
             </thead>
             <tbody className={`divide-y text-sm ${"divide-slate-100 dark:divide-slate-800/60"}`}>
@@ -197,69 +197,70 @@ export default function EmployeeTable({
                     </td>
 
                     {/* Personnel Info */}
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-900 dark:text-slate-100">
+                    <td className="px-4 py-4 truncate">
+                      <div className="font-semibold text-slate-900 dark:text-slate-100 truncate" title={person.name}>
                         {person.name}
                       </div>
                       <div
-                        className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"
+                        className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 truncate"
                         dir="ltr"
                       >
-                        <Phone className="h-3 w-3 text-indigo-400" />
-                        {person.phone}
+                        <Phone className="h-3 w-3 shrink-0 text-indigo-400" />
+                        <span className="truncate">{person.phone}</span>
                       </div>
                     </td>
 
                     {/* Iqama Number chip */}
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4 truncate">
                       <span
-                        className="rounded-md border border-slate-600/50 bg-slate-100 px-2.5 py-1 font-mono text-sm text-slate-800 dark:border-slate-700/50 dark:bg-slate-800 dark:text-slate-200"
+                        className="inline-block max-w-full truncate rounded-md border border-slate-600/50 bg-slate-100 px-2.5 py-1 font-mono text-xs text-slate-800 dark:border-slate-700/50 dark:bg-slate-800 dark:text-slate-200"
                         dir="ltr"
+                        title={person.iqamaNumber}
                       >
                         {person.iqamaNumber}
                       </span>
                     </td>
 
                     {/* Kafeel */}
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-slate-800 dark:text-slate-200">
+                    <td className="px-4 py-4 truncate">
+                      <div className="font-medium text-slate-800 dark:text-slate-200 truncate" title={person.kafeelName}>
                         {person.kafeelName}
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400" dir="ltr">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 truncate" dir="ltr" title={person.kafeelPhone}>
                         {person.kafeelPhone}
                       </div>
                     </td>
 
                     {/* CR / Muassasa */}
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-slate-800 dark:text-slate-200">
+                    <td className="px-4 py-4 truncate">
+                      <div className="font-medium text-slate-800 dark:text-slate-200 truncate" title={person.companyName}>
                         {person.companyName}
                       </div>
-                      <div className="font-mono text-xs text-slate-500 dark:text-slate-400" dir="ltr">
+                      <div className="font-mono text-xs text-slate-500 dark:text-slate-400 truncate" dir="ltr" title={person.crNumber}>
                         CR: {person.crNumber}
                       </div>
                     </td>
 
                     {/* Expiry Status */}
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4 truncate">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${st.bg} ${
+                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${st.bg} ${
                             st.key === "red" ? "animate-red-pulse" : ""
                           }`}
                         >
-                          <StatusIcon className="h-3.5 w-3.5" />
+                          <StatusIcon className="h-3.5 w-3.5 shrink-0" />
                           {daysLabel(st.days)}
                         </span>
                       </div>
-                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400" dir="ltr">
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate" dir="ltr">
                         Exp: {formatDate(person.expiryDate)}
                       </div>
                     </td>
 
                     {/* Actions */}
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5">
                         <a
                           href={`https://wa.me/${String(person.phone).replace(/[^0-9]/g, "")}`}
                           target="_blank"
@@ -272,7 +273,7 @@ export default function EmployeeTable({
                         <button
                           onClick={() => onView(person)}
                           title="View Full Profile"
-                          className={`flex items-center gap-2 rounded-lg border p-2 transition ${
+                          className={`rounded-lg border p-2 transition ${
                             "border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                           }`}
                         >
@@ -281,7 +282,7 @@ export default function EmployeeTable({
                         <button
                           onClick={() => onEdit(person)}
                           title="Edit Record"
-                          className={`flex items-center gap-2 rounded-lg border p-2 transition ${
+                          className={`rounded-lg border p-2 transition ${
                             "border-slate-200 bg-slate-100 text-slate-600 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                           }`}
                         >
