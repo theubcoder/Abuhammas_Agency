@@ -33,30 +33,37 @@ export function isValidSaudiNumber(raw) {
   return /^5\d{8}$/.test(intl);
 }
 
-// Live validation — form ke current values ke hisaab se pehla error return karta hai
-function validate(form) {
-  const name = String(form.name).trim();
-  if (!name) return "Full Name is required.";
-  const iqama = String(form.iqamaNumber).trim();
-  if (!iqama) return "Iqama Number is required.";
-  if (!String(form.expiryDate).trim()) return "Iqama Expiry Date is required.";
-  if (!/^\d{10}$/.test(iqama)) {
-    return "Iqama number must be exactly 10 digits.";
-  }
-  const phone = String(form.phone).trim();
-  if (phone && !isValidSaudiNumber(phone)) {
-    return "Please enter a valid Saudi phone number (e.g. 0512345678 or +966512345678).";
-  }
-  const kafeelPhone = String(form.kafeelPhone).trim();
-  if (kafeelPhone && !isValidSaudiNumber(kafeelPhone)) {
-    return "Please enter a valid Saudi kafeel phone number (e.g. 0512345678 or +966512345678).";
-  }
-  return "";
+// Har field ka apna validator — error message return karta hai ("" = theek hai)
+const validators = {
+  name: (v) => (String(v).trim() ? "" : "Full Name is required."),
+  iqamaNumber: (v) => {
+    const s = String(v).trim();
+    if (!s) return "Iqama Number is required.";
+    return /^\d{10}$/.test(s) ? "" : "Iqama number must be exactly 10 digits.";
+  },
+  expiryDate: (v) =>
+    String(v).trim() ? "" : "Iqama Expiry Date is required.",
+  phone: (v) =>
+    String(v).trim() && !isValidSaudiNumber(v)
+      ? "Invalid Saudi number — use 05XXXXXXXX or +9665XXXXXXXX."
+      : "",
+  kafeelPhone: (v) =>
+    String(v).trim() && !isValidSaudiNumber(v)
+      ? "Invalid Saudi kafeel number — use 05XXXXXXXX or +9665XXXXXXXX."
+      : "",
+};
+
+// Phone auto-correct — space/dash/koi extra character type hota hai to khud strip ho jata hai,
+// sirf digits aur starting ka + rehta hai. Is se "do dash ke baad" type issues nahi aate.
+function cleanPhone(v) {
+  return String(v).replace(/[^0-9+]/g, "");
 }
 
 export default function EmployeeModal({ initial, onSave, onClose, employees = [] }) {
   const [form, setForm] = useState(initial ? { ...initial } : { ...EMPTY });
-  const [dirty, setDirty] = useState(false); // user ne kuch type kiya?
+  // Har field ka "user ne chhua" flag — error tabhi dikhate hain jab user us field use kare
+  const [touched, setTouched] = useState({});
+  const [, setDirty] = useState(false); // form change tracking (parent sync ke liye)
   const [submitTried, setSubmitTried] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -74,8 +81,15 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
   }, [employees]);
 
   function set(key, value) {
-    setForm((f) => ({ ...f, [key]: value }));
+    // Phone fields live auto-correct: space/dash/extra chars likhte hi strip ho jate hain
+    const clean =
+      key === "phone" || key === "kafeelPhone" ? cleanPhone(value) : value;
+    setForm((f) => ({ ...f, [key]: clean }));
     setDirty(true);
+  }
+
+  function markTouched(key) {
+    setTouched((t) => (t[key] ? t : { ...t, [key]: true }));
   }
 
   // Kafeel select/type: existing kafeel match hote hi canonical spelling aur
@@ -100,7 +114,15 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
   async function submit(e) {
     e.preventDefault();
     setSubmitTried(true);
-    if (validate(form)) return; // live error banner dikha raha hoga
+    // Submit par saari fields "touched" — phir har input ke neeche apna error dikhta hai
+    setTouched({
+      name: true,
+      iqamaNumber: true,
+      expiryDate: true,
+      phone: true,
+      kafeelPhone: true,
+    });
+    if (Object.keys(validators).some((k) => validators[k](form[k]))) return;
     setBusy(true);
     try {
       await onSave(
@@ -114,8 +136,9 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
     }
   }
 
-  const validationError = validate(form);
-  const error = (dirty || submitTried) && validationError ? validationError : "";
+  // Per-field live error — sirf touched/submit ke baad dikhata hai (pehle se nahi)
+  const errFor = (key) =>
+    touched[key] || submitTried ? validators[key]?.(form[key]) || "" : "";
   const st = form.expiryDate ? getStatus(form.expiryDate) : null;
 
   return (
@@ -151,8 +174,12 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
               placeholder="e.g. Ahmed Al-Mansoor"
               value={form.name ?? ""}
               onChange={(e) => set("name", e.target.value)}
-              className={inputCls}
+              onBlur={() => markTouched("name")}
+              className={errFor("name") ? errCls : inputCls}
             />
+            {errFor("name") && (
+              <span className="mt-1 block text-xs text-rose-500">{errFor("name")}</span>
+            )}
           </label>
 
           <label className="block">
@@ -165,8 +192,12 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
               placeholder="05XXXXXXXX / +9665XXXXXXXX"
               value={form.phone ?? ""}
               onChange={(e) => set("phone", e.target.value)}
-              className={inputCls}
+              onBlur={() => markTouched("phone")}
+              className={errFor("phone") ? errCls : inputCls}
             />
+            {errFor("phone") && (
+              <span className="mt-1 block text-xs text-rose-500">{errFor("phone")}</span>
+            )}
           </label>
 
           <label className="block">
@@ -179,8 +210,12 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
               placeholder="10 digit Iqama ID"
               value={form.iqamaNumber ?? ""}
               onChange={(e) => set("iqamaNumber", e.target.value)}
-              className={inputCls}
+              onBlur={() => markTouched("iqamaNumber")}
+              className={errFor("iqamaNumber") ? errCls : inputCls}
             />
+            {errFor("iqamaNumber") && (
+              <span className="mt-1 block text-xs text-rose-500">{errFor("iqamaNumber")}</span>
+            )}
           </label>
 
           <label className="block">
@@ -192,8 +227,12 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
               title="Select Iqama Expiry Date"
               value={form.expiryDate ?? ""}
               onChange={(e) => set("expiryDate", e.target.value)}
-              className={`${inputCls} rtl-date`}
+              onBlur={() => markTouched("expiryDate")}
+              className={`${errFor("expiryDate") ? errCls : inputCls} rtl-date`}
             />
+            {errFor("expiryDate") && (
+              <span className="mt-1 block text-xs text-rose-500">{errFor("expiryDate")}</span>
+            )}
           </label>
           {st && (
             <p className={`col-span-full -mt-2 flex items-center gap-2 text-xs font-medium ${st.bg} rounded-lg px-3 py-2`}>
@@ -238,8 +277,12 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
               placeholder="05XXXXXXXX / +9665XXXXXXXX"
               value={form.kafeelPhone ?? ""}
               onChange={(e) => set("kafeelPhone", e.target.value)}
-              className={inputCls}
+              onBlur={() => markTouched("kafeelPhone")}
+              className={errFor("kafeelPhone") ? errCls : inputCls}
             />
+            {errFor("kafeelPhone") && (
+              <span className="mt-1 block text-xs text-rose-500">{errFor("kafeelPhone")}</span>
+            )}
           </label>
 
           <label className="block">
@@ -268,13 +311,6 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
               className={inputCls}
             />
           </label>
-
-          {error && (
-            <p className="col-span-full flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-500">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              {error}
-            </p>
-          )}
 
           <div className="col-span-full flex items-center justify-end gap-3 pt-4">
             <button
@@ -309,3 +345,7 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
 
 const inputCls =
   "w-full cursor-text rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:placeholder-slate-500";
+
+// Invalid field ka error style — rose border + rose ring
+const errCls =
+  "w-full cursor-text rounded-xl border border-rose-500 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:outline-none focus:ring-2 focus:ring-rose-500 dark:bg-slate-950 dark:text-slate-200 dark:placeholder-slate-500";
