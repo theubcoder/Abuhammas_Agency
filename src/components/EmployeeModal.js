@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { X, User, Calendar, AlertTriangle, Loader2 } from "lucide-react";
+import { X, User, Calendar, AlertTriangle, Loader2, Languages } from "lucide-react";
 import { daysLabel, getStatus } from "@/lib/iqama";
 
 const EMPTY = {
@@ -59,10 +59,37 @@ function cleanPhone(v) {
   return String(v).replace(/[^0-9+]/g, "");
 }
 
+// English text ko Arabic mein translate — bina API key ke, browser se direct.
+// Pehle Google gtx endpoint; fail hota hai to MyMemory (free, keyless) try karte hain.
+async function translateToArabic(text) {
+  try {
+    const res = await fetch(
+      `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ar&dt=t&q=${encodeURIComponent(text)}`
+    );
+    if (!res.ok) throw new Error("gtx failed");
+    const data = await res.json();
+    const out = (data?.[0] || []).map((x) => x?.[0]).filter(Boolean).join("");
+    if (out) return out;
+    throw new Error("empty");
+  } catch {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ar`
+    );
+    if (!res.ok) throw new Error("mymemory failed");
+    const data = await res.json();
+    const out = data?.responseData?.translatedText || "";
+    if (!out || /MYMEMORY WARNING|INVALID/i.test(out)) throw new Error("mymemory empty");
+    return out;
+  }
+}
+
 export default function EmployeeModal({ initial, onSave, onClose, employees = [] }) {
   const [form, setForm] = useState(initial ? { ...initial } : { ...EMPTY });
   // Har field ka "user ne chhua" flag — error tabhi dikhate hain jab user us field use kare
   const [touched, setTouched] = useState({});
+  // Translate button ke liye — per-field busy aur error states
+  const [transBusy, setTransBusy] = useState({});
+  const [transError, setTransError] = useState({});
   const [, setDirty] = useState(false); // form change tracking (parent sync ke liye)
   const [submitTried, setSubmitTried] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -90,6 +117,27 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
 
   function markTouched(key) {
     setTouched((t) => (t[key] ? t : { ...t, [key]: true }));
+  }
+
+  // English name → Arabic — button press par current input text translate ho kar
+  // input mein wapas set hota hai. Kafeel wal a display mesage sa kafeel-match
+  // logic ke through setKafeel() use karta hai take autofill break na ho.
+  async function translateField(key, isKafeelName = false) {
+    const text = String(form[key] || "").trim();
+    if (!text) return;
+    setTransBusy((b) => ({ ...b, [key]: true }));
+    setTransError((e) => ({ ...e, [key]: "" }));
+    try {
+      const arabic = await translateToArabic(text);
+      if (arabic && arabic !== text) {
+        if (isKafeelName) setKafeel(arabic);
+        else set(key, arabic);
+      }
+    } catch {
+      setTransError((e) => ({ ...e, [key]: "Translation fail — check your internet and try again." }));
+    } finally {
+      setTransBusy((b) => ({ ...b, [key]: false }));
+    }
   }
 
   // Kafeel select/type: existing kafeel match hote hi canonical spelling aur
@@ -251,15 +299,34 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
             <span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               Kafeel / Sponsor Name
             </span>
-            <input
-              type="text"
-              list="kafeel-suggestions"
-              placeholder="Sponsor Full Name"
-              title="Type new sponsor, or pick an existing one from the list"
-              value={form.kafeelName ?? ""}
-              onChange={(e) => setKafeel(e.target.value)}
-              className={inputCls}
-            />
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                list="kafeel-suggestions"
+                placeholder="Sponsor Full Name"
+                title="Type new sponsor, or pick an existing one from the list"
+                value={form.kafeelName ?? ""}
+                onChange={(e) => setKafeel(e.target.value)}
+                className={`${inputCls} min-w-0 flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => translateField("kafeelName", true)}
+                disabled={transBusy.kafeelName}
+                title="English text ko Arabic mein convert karein"
+                className="flex shrink-0 cursor-pointer items-center justify-center rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 text-indigo-500 transition hover:bg-indigo-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {transBusy.kafeelName ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Languages className="h-4 w-4" />
+                )}
+                <span className="ml-1.5 hidden text-xs font-medium sm:inline">عربی</span>
+              </button>
+            </div>
+            {transError.kafeelName && (
+              <span className="mt-1 block text-xs text-rose-500">{transError.kafeelName}</span>
+            )}
             <datalist id="kafeel-suggestions">
               {kafeelList.map((k) => (
                 <option key={k.name} value={k.name} />
@@ -303,13 +370,32 @@ export default function EmployeeModal({ initial, onSave, onClose, employees = []
             <span className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               Muassasa / Company Name
             </span>
-            <input
-              type="text"
-              placeholder="Enterprise Name"
-              value={form.companyName ?? ""}
-              onChange={(e) => set("companyName", e.target.value)}
-              className={inputCls}
-            />
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                placeholder="Enterprise Name"
+                value={form.companyName ?? ""}
+                onChange={(e) => set("companyName", e.target.value)}
+                className={`${inputCls} min-w-0 flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => translateField("companyName")}
+                disabled={transBusy.companyName}
+                title="English text ko Arabic mein convert karein"
+                className="flex shrink-0 cursor-pointer items-center justify-center rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 text-indigo-500 transition hover:bg-indigo-500/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {transBusy.companyName ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Languages className="h-4 w-4" />
+                )}
+                <span className="ml-1.5 hidden text-xs font-medium sm:inline">عربی</span>
+              </button>
+            </div>
+            {transError.companyName && (
+              <span className="mt-1 block text-xs text-rose-500">{transError.companyName}</span>
+            )}
           </label>
 
           <div className="col-span-full flex items-center justify-end gap-3 pt-4">
