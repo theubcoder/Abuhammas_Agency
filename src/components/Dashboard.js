@@ -13,11 +13,12 @@ import {
   Download,
   Trash2,
   Loader2,
+  CalendarClock,
   Sun,
   Moon,
   LogOut,
 } from "lucide-react";
-import { getStatus, daysLabel } from "@/lib/iqama";
+import { getStatus, daysLabel, daysLeft, parseExpiryDate } from "@/lib/iqama";
 import { useEmployees, saveEmployees, useUiState } from "@/lib/store";
 import { exportPersonnelCSV } from "@/lib/csv";
 import { useTheme } from "@/lib/theme";
@@ -38,6 +39,8 @@ export default function Dashboard() {
   const employees = useEmployees();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // all | red | yellow | green
+  // Expiry window filter — days: "all" | 15 | 30 | 60 | 90 | 180
+  const [monthFilter, setMonthFilter] = useState("all");
   const [kafeelFilter, setKafeelFilter] = useState("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -82,6 +85,27 @@ export default function Dashboard() {
     [employees]
   );
 
+  // Dropdown ke labels ke liye — har expiry window ke andar kitne bande hain
+  // Numeric windows = sirf agli X dinon mein expire hone wale (expired excluded);
+  // expired aur invalid ke liye alag buckets taki har option bilkul sahi dikhae
+  const monthCounts = useMemo(() => {
+    const windows = [15, 30, 60, 90, 180];
+    const c = { 15: 0, 30: 0, 60: 0, 90: 0, 180: 0, expired: 0, invalid: 0 };
+    for (const e of employees) {
+      const d = daysLeft(e.expiryDate);
+      if (d === -9999) {
+        c.invalid += 1;
+        continue;
+      }
+      if (d < 0) {
+        c.expired += 1;
+        continue;
+      }
+      for (const w of windows) if (d <= w) c[w] += 1;
+    }
+    return c;
+  }, [employees]);
+
   const counts = useMemo(() => {
     const c = { red: 0, yellow: 0, green: 0 };
     for (const e of employees) c[getStatus(e.expiryDate).key] += 1;
@@ -95,15 +119,23 @@ export default function Dashboard() {
         statusFilter === "all" ? true : getStatus(e.expiryDate).key === statusFilter
       )
       .filter((e) => (kafeelFilter === "all" ? true : e.kafeelName === kafeelFilter))
+      .filter((e) => {
+        if (monthFilter === "all") return true;
+        if (monthFilter === "invalid") return !parseExpiryDate(e.expiryDate);
+        const d = daysLeft(e.expiryDate);
+        if (d === -9999) return false;
+        if (monthFilter === "expired") return d < 0;
+        return d >= 0 && d <= Number(monthFilter);
+      })
       .filter((e) =>
         q
-          ? [e.name, e.phone, e.iqamaNumber, e.crNumber, e.companyName, e.kafeelName]
+          ? [e.name, e.phone, e.iqamaNumber, e.crNumber, e.companyName, e.kafeelName, e.kafeelPhone]
               .filter(Boolean)
               .some((v) => v.toLowerCase().includes(q))
           : true
       )
       .sort((a, b) => (a.expiryDate || "").localeCompare(b.expiryDate || ""));
-  }, [employees, query, statusFilter, kafeelFilter]);
+  }, [employees, query, statusFilter, kafeelFilter, monthFilter]);
 
   const cardBase = `p-4 rounded-2xl border transition-all cursor-pointer sm:p-5 ${
     dark
@@ -150,6 +182,14 @@ export default function Dashboard() {
 
   function toggleSelectAll(checked) {
     setSelectedIds(checked ? filtered.map((e) => e.id) : []);
+  }
+
+  // Status pill/card click — pehli se lagi Expiry Window reset ho jaye,
+  // warna dono filters ka intersection empty result deta hai aur lagta
+  // hai ke green/yellow filter "kaam nahi kar raha"
+  function selectStatus(id) {
+    setStatusFilter(id);
+    setMonthFilter("all");
   }
 
   return (
@@ -231,9 +271,10 @@ export default function Dashboard() {
           <div
             onClick={() => {
               setStatusFilter("all");
+              setMonthFilter("all");
               setKafeelFilter("all");
             }}
-            className={`${cardBase} animate-fade-up ${statusFilter === "all" && kafeelFilter === "all" ? "ring-2 ring-indigo-500" : ""}`}
+            className={`${cardBase} animate-fade-up ${statusFilter === "all" && kafeelFilter === "all" && monthFilter === "all" ? "ring-2 ring-indigo-500" : ""}`}
             style={{ animationDelay: "0ms" }}
           >
             <div className="flex items-center justify-between">
@@ -258,7 +299,7 @@ export default function Dashboard() {
 
           {/* Critical — Red (≤ 30 days) */}
           <div
-            onClick={() => setStatusFilter("red")}
+            onClick={() => selectStatus("red")}
             className={`${cardBase} animate-fade-up ${statusFilter === "red" ? "ring-2 ring-rose-500" : ""}`}
             style={{ animationDelay: "60ms" }}
           >
@@ -276,11 +317,21 @@ export default function Dashboard() {
                 Urgent Action
               </span>
             </div>
+            {/* Month-wise breakdown — abhi aur 1/2/3/6 mahine ke andar kitne bande hain */}
+            <div className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-rose-400/80">
+              <span>15d: {monthCounts[15]}</span>
+              <span className="text-rose-500/30">•</span>
+              <span>1m: {monthCounts[30]}</span>
+              <span className="text-rose-500/30">•</span>
+              <span>2m: {monthCounts[60]}</span>
+              <span className="text-rose-500/30">•</span>
+              <span>3m: {monthCounts[90]}</span>
+            </div>
           </div>
 
           {/* Warning — Yellow (31–60 days) */}
           <div
-            onClick={() => setStatusFilter("yellow")}
+            onClick={() => selectStatus("yellow")}
             className={`${cardBase} animate-fade-up ${statusFilter === "yellow" ? "ring-2 ring-amber-500" : ""}`}
             style={{ animationDelay: "120ms" }}
           >
@@ -302,7 +353,7 @@ export default function Dashboard() {
 
           {/* Safe — Green (> 60 days) */}
           <div
-            onClick={() => setStatusFilter("green")}
+            onClick={() => selectStatus("green")}
             className={`${cardBase} animate-fade-up ${statusFilter === "green" ? "ring-2 ring-emerald-500" : ""}`}
             style={{ animationDelay: "180ms" }}
           >
@@ -338,7 +389,7 @@ export default function Dashboard() {
             />
             <input
               type="text"
-              placeholder="Search by Name, Iqama, Kafeel, or CR number…"
+              placeholder="Search by Name, Iqama, Kafeel (name/number), or CR number…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className={`w-full rounded-xl border py-2.5 pl-10 pr-4 text-sm outline-none transition focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
@@ -354,7 +405,7 @@ export default function Dashboard() {
             {FILTERS.map((pill) => (
               <button
                 key={pill.id}
-                onClick={() => setStatusFilter(pill.id)}
+                onClick={() => selectStatus(pill.id)}
                 className={`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium transition ${
                   statusFilter === pill.id
                     ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
@@ -366,6 +417,36 @@ export default function Dashboard() {
                 {pill.label}
               </button>
             ))}
+          </div>
+
+          {/* Expiry Month Window — 15 din / 1-6 mahine tak ki expiry filter */}
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <CalendarClock
+              className={`h-4 w-4 shrink-0 ${dark ? "text-slate-400" : "text-slate-500"}`}
+            />
+            <select
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              title="Filter records by how soon Iqama expires"
+              className={`max-w-[calc(100%-3.5rem)] min-w-0 flex-1 rounded-xl border px-3 py-2 text-xs font-medium outline-none transition focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:max-w-none sm:flex-none ${
+                dark
+                  ? "border-slate-800 bg-slate-950 text-slate-200"
+                  : "border-slate-200 bg-slate-50 text-slate-700"
+              }`}
+            >
+              <option value="all">All Expiry Windows</option>
+              <option value="15">Within 15 Days ({monthCounts[15]})</option>
+              <option value="30">Within 1 Month ({monthCounts[30]})</option>
+              <option value="60">Within 2 Months ({monthCounts[60]})</option>
+              <option value="90">Within 3 Months ({monthCounts[90]})</option>
+              <option value="180">Within 6 Months ({monthCounts[180]})</option>
+              {monthCounts.expired > 0 && (
+                <option value="expired">Expired ({monthCounts.expired})</option>
+              )}
+              {monthCounts.invalid > 0 && (
+                <option value="invalid">Expiry Date Invalid ({monthCounts.invalid})</option>
+              )}
+            </select>
           </div>
 
           {/* Kafeel Filter + CSV Export */}
